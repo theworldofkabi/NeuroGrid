@@ -4,7 +4,7 @@ const path = require('path');
 const { exec } = require('child_process');
 
 const PORT = 3000;
-const DIR = __dirname;
+const DIR = path.join(__dirname, '..');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -36,6 +36,4 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`NeuroGrid server running at http://localhost:${PORT}/`);
-  // Open default browser on Windows
-  exec(`start http://localhost:${PORT}/`);
 });
