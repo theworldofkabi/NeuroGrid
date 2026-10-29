@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NeuroGrid — Edge-Based Agricultural IoT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --soil:#4A3728;
+    --leaf-deep:#2F4F3A;
+    --leaf-bright:#7A9B57;
+    --wheat:#D9C48F;
+    --sky:#4F7C96;
+    --clay:#B1502E;
+    --bg:#F2EFE4;
+    --surface:#FCFBF5;
+    --surface-dim:#EAE6D6;
+    --ink:#26301F;
+    --ink-soft:#5B6152;
+    --line:#D8D2BE;
+    --c-soil:#2F4F3A;
+    --c-temp:#C97A3D;
+    --c-hum:#4F7C96;
+    --c-rain:#6C5B9A;
+    --radius-card:10px;
+    --radius-pill:999px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  :root{ box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:15px;
+    line-height:1.5;
+  }
+  h1,h2,h3,.brand-word{
+    font-family:'Fraunces', serif;
+    color:var(--soil);
+    margin:0;
+  }
+  .mono{font-family:'IBM Plex Mono', monospace;}
+  a{color:inherit;}
+
+  /* ---------- layout ---------- */
+  .app{ display:grid; grid-template-columns:232px 1fr; min-height:100vh; }
+
+  .sidebar{
+    background:var(--leaf-deep);
+    color:#EFEAD8;
+    padding:26px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+  }
+  .brand{ display:flex; flex-direction:column; gap:2px; }
+  .brand .brand-word{ font-size:26px; color:#F4F1E4; letter-spacing:0.2px; }
+  .brand .brand-sub{ font-size:12.5px; color:#B9C6A9; max-width:22ch; }
+
+  .nav{ display:flex; flex-direction:column; gap:2px; margin-top:6px;}
+  .nav button{
+    all:unset;
+    cursor:pointer;
+    padding:10px 12px;
+    border-radius:8px;
+    font-size:14px;
+    color:#D9E0CB;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    transition:background .15s ease, color .15s ease;
+  }
+  .nav button .dot{ width:6px; height:6px; border-radius:50%; background:#5E7A54; flex:none; }
+  .nav button:hover{ background:#3B6449; color:#fff; }
+  .nav button.active{ background:#EFEAD8; color:var(--leaf-deep); font-weight:600; }
+  .nav button.active .dot{ background:var(--clay); }
+
+  .sidebar-foot{ margin-top:auto; font-size:12px; color:#9FB08D; border-top:1px solid #3E6549; padding-top:14px; }
+
+  .main{ display:flex; flex-direction:column; min-width:0; }
+
+  .topbar{
+    background:var(--surface);
+    border-bottom:1px solid var(--line);
+    padding:14px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    position:sticky;
+    top:0;
+    z-index:5;
+  }
+  .topbar-left{ display:flex; align-items:center; gap:16px; }
+  .clock{ font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--ink-soft); }
+
+  .status-pill{
+    display:inline-flex; align-items:center; gap:7px;
+    padding:6px 12px; border-radius:var(--radius-pill);
+    font-size:12.5px; font-weight:600;
+    border:1px solid transparent;
+  }
+  .status-pill .led{ width:8px; height:8px; border-radius:50%; }
+  .status-pill.online{ background:#E4EEE2; color:#2C5A3C; border-color:#C4DCC1; }
+  .status-pill.online .led{ background:#3E8E52; box-shadow:0 0 0 3px rgba(62,142,82,.18); }
+  .status-pill.offline{ background:#F5E4DD; color:#8C3A1F; border-color:#E7C6B6; }
+  .status-pill.offline .led{ background:var(--clay); box-shadow:0 0 0 3px rgba(177,80,46,.18); }
+
+  .controls{ display:flex; gap:8px; flex-wrap:wrap; }
+  .btn{
+    all:unset; cursor:pointer;
+    padding:8px 14px; border-radius:8px;
+    font-size:13px; font-weight:600;
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--ink);
+    white-space:nowrap;
+  }
+  .btn:hover{ border-color:var(--leaf-bright); }
+  .btn:active{ transform:translateY(1px); }
+  .btn.primary{ background:var(--leaf-deep); color:#F4F1E4; border-color:var(--leaf-deep); }
+  .btn.primary:hover{ background:#264531; }
+  .btn.danger{ background:#fff; color:var(--clay); border-color:#E7C6B6; }
+  .btn.danger:hover{ background:#FBEEE8; }
+  .btn.ghost{ background:transparent; }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+  .content{ padding:26px 28px 60px; max-width:1180px; width:100%; margin:0 auto; }
+  .page{ display:none; flex-direction:column; gap:22px; }
+  .page.active{ display:flex; }
+
+  .page-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .page-head h2{ font-size:23px; }
+  .page-head p{ margin:4px 0 0; color:var(--ink-soft); font-size:13.5px; max-width:60ch; }
+
+  .grid{ display:grid; gap:16px; }
+  .grid.cols-4{ grid-template-columns:repeat(4,1fr); }
+  .grid.cols-3{ grid-template-columns:repeat(3,1fr); }
+  .grid.cols-2{ grid-template-columns:repeat(2,1fr); }
+  @media (max-width:920px){
+    .grid.cols-4{ grid-template-columns:repeat(2,1fr); }
+    .grid.cols-3{ grid-template-columns:repeat(1,1fr); }
+    .grid.cols-2{ grid-template-columns:repeat(1,1fr); }
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius-card);
+    padding:16px 18px;
+  }
+  .card.flush{ padding:0; overflow:hidden; }
+
+  .sensor-card{ border-left:4px solid var(--c-soil); position:relative; }
+  .sensor-card[data-sensor="temp"]{ border-left-color:var(--c-temp); }
+  .sensor-card[data-sensor="hum"]{ border-left-color:var(--c-hum); }
+  .sensor-card[data-sensor="rain"]{ border-left-color:var(--c-rain); }
+  .sensor-card .label{ font-size:12.5px; color:var(--ink-soft); display:flex; justify-content:space-between; }
+  .sensor-card .value{ font-family:'IBM Plex Mono', monospace; font-size:30px; font-weight:600; margin-top:4px; color:var(--soil); }
+  .sensor-card .value span{ font-size:15px; font-weight:500; color:var(--ink-soft); margin-left:2px; }
+  .sensor-card svg{ margin-top:8px; display:block; width:100%; height:34px; }
+
+  .stat-card .label{ font-size:12.5px; color:var(--ink-soft); }
+  .stat-card .value{ font-family:'IBM Plex Mono', monospace; font-size:26px; font-weight:600; color:var(--soil); margin-top:4px; }
+  .stat-card .sub{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  thead th{
+    text-align:left; font-weight:600; color:var(--ink-soft);
+    padding:10px 14px; border-bottom:1px solid var(--line);
+    background:var(--surface-dim); font-size:12px;
+  }
+  tbody td{ padding:9px 14px; border-bottom:1px solid var(--line); }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:#F6F4E9; }
+  .num{ font-family:'IBM Plex Mono', monospace; }
+
+  .tag{ display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:var(--radius-pill); font-size:11.5px; font-weight:600; }
+  .tag.critical{ background:#F5E0DA; color:#8C3A1F; }
+  .tag.high{ background:#F5EDD4; color:#8A6A17; }
+  .tag.normal{ background:#E4EEE2; color:#2C5A3C; }
+  .tag.spike-high{ background:#F5E0DA; color:#8C3A1F; }
+  .tag.spike-low{ background:#F5EDD4; color:#8A6A17; }
+  .tag.spike-none{ background:#EAE6D6; color:var(--ink-soft); }
+  .tag.status-synced{ background:#E4EEE2; color:#2C5A3C; }
+  .tag.status-pending{ background:#EFE1D3; color:#8C5A1F; }
+  .tag.status-syncing{ background:#DCE8EE; color:#2A5C74; }
+
+  .empty-row td{ text-align:center; color:var(--ink-soft); padding:22px; font-style:normal; }
+
+  .progress{ height:8px; background:var(--surface-dim); border-radius:var(--radius-pill); overflow:hidden; }
+  .progress > div{ height:100%; background:var(--leaf-bright); transition:width .35s ease; }
+
+  .queue-col h4{ font-size:12.5px; text-transform:none; color:var(--ink-soft); margin:0 0 8px; font-weight:600; }
+  .queue-item{ display:flex; justify-content:space-between; padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; background:var(--surface); font-size:12.5px; }
+  .queue-empty{ color:var(--ink-soft); font-size:12.5px; padding:8px 2px; }
+
+  .banner{ padding:10px 14px; border-radius:8px; font-size:13px; border:1px solid var(--line); background:var(--surface-dim); color:var(--ink-soft); }
+  .banner.warn{ background:#F5EDD4; color:#8A6A17; border-color:#EBDCA9; }
+  .banner.ok{ background:#E4EEE2; color:#2C5A3C; border-color:#C4DCC1; }
+
+  /* architecture flow */
+  .flow{ display:flex; flex-direction:column; align-items:stretch; gap:0; max-width:420px; margin:0 auto; }
+  .flow-node{ border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:12px 16px; display:flex; align-items:center; gap:10px; }
+  .flow-node .n{ font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--ink-soft); width:18px; }
+  .flow-node .t{ font-weight:600; font-size:13.5px; }
+  .flow-node .d{ font-size:12px; color:var(--ink-soft); }
+  .flow-arrow{ text-align:center; color:var(--ink-soft); font-size:15px; padding:2px 0; }
+  .flow-node.edge{ border-left:4px solid var(--leaf-deep); }
+  .flow-node.cloud{ border-left:4px solid var(--sky); }
+  .flow-node.dim{ opacity:.45; }
+  .layer-label{ text-align:center; font-size:11.5px; font-weight:600; color:var(--ink-soft); margin:14px 0 6px; }
+
+  .legend{ display:flex; gap:18px; justify-content:center; font-size:12.5px; color:var(--ink-soft); }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .legend i{ width:10px; height:10px; border-radius:2px; display:inline-block; }
+
+  .kv{ display:flex; justify-content:space-between; font-size:13px; padding:7px 0; border-bottom:1px dashed var(--line); }
+  .kv:last-child{ border-bottom:none; }
+  .kv .k{ color:var(--ink-soft); }
+  .kv .v{ font-family:'IBM Plex Mono', monospace; font-weight:600; }
+
+  .section-title{ font-size:14px; font-weight:600; color:var(--soil); margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-word">NeuroGrid</div>
+      <div class="brand-sub">Edge-based sensing for fields with unreliable connectivity</div>
+    </div>
+    <div class="nav" id="nav">
+      <button data-page="overview" class="active"><span class="dot"></span>Main Dashboard</button>
+      <button data-page="live"><span class="dot"></span>Live Sensor Monitoring</button>
+      <button data-page="offline"><span class="dot"></span>Offline Storage</button>
+      <button data-page="spike"><span class="dot"></span>Spike Encoding</button>
+      <button data-page="sync"><span class="dot"></span>Network &amp; Sync Monitor</button>
+      <button data-page="arch"><span class="dot"></span>Architecture / Workflow</button>
+      <button data-page="stats"><span class="dot"></span>System Statistics</button>
+    </div>
+    <div class="sidebar-foot">Simulated ESP32 edge node<br>Ready for MQTT / REST bridge</div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <span class="status-pill online" id="statusPill"><span class="led"></span><span id="statusText">Online</span></span>
+        <span class="clock" id="clock">--:--:--</span>
+      </div>
+      <div class="controls">
+        <button class="btn" id="btnGenerate">Generate Sensor Data</button>
+        <button class="btn danger" id="btnFail">Simulate Network Failure</button>
+        <button class="btn" id="btnRestore">Restore Network</button>
+        <button class="btn primary" id="btnSync">Start Sync</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- OVERVIEW -->
+      <section class="page active" id="page-overview">
+        <div class="page-head">
+          <div>
+            <h2>Main Dashboard</h2>
+            <p>Live snapshot of field conditions, connectivity, and the offline queue. Use the controls above to walk through a failure-and-recovery cycle.</p>
+          </div>
+        </div>
+
+        <div class="grid cols-4" id="overviewSensors"></div>
+
+        <div class="grid cols-3">
+          <div class="card">
+            <div class="section-title">Network status</div>
+            <div class="kv"><span class="k">Connection</span><span class="v" id="ovNetState">ONLINE</span></div>
+            <div class="kv"><span class="k">Signal strength</span><span class="v" id="ovSignal">--%</span></div>
+            <div class="kv"><span class="k">Quality</span><span class="v" id="ovQuality">Good</span></div>
+            <div class="kv"><span class="k">Unsynchronized records</span><span class="v" id="ovPending">0</span></div>
+          </div>
+          <div class="card">
+            <div class="section-title">Offline storage</div>
+            <div class="kv"><span class="k">Locally stored records</span><span class="v" id="ovLocalCount">0</span></div>
+            <div class="kv"><span class="k">Critical pending</span><span class="v" id="ovCritCount">0</span></div>
+            <div class="kv"><span class="k">High pending</span><span class="v" id="ovHighCount">0</span></div>
+            <div class="kv"><span class="k">Normal pending</span><span class="v" id="ovNormCount">0</span></div>
+          </div>
+          <div class="card">
+            <div class="section-title">Synchronization</div>
+            <div class="kv"><span class="k">Scheduler state</span><span class="v" id="ovSyncState">Idle</span></div>
+            <div class="progress" style="margin:10px 0 6px;"><div id="ovProgressBar" style="width:0%"></div></div>
+            <div class="kv"><span class="k">Last successful sync</span><span class="v" id="ovLastSync">—</span></div>
+          </div>
+        </div>
+
+        <div class="card" id="ovBannerCard" style="display:none;"></div>
+      </section>
+
+      <!-- LIVE SENSORS -->
+      <section class="page" id="page-live">
+        <div class="page-head">
+          <div>
+            <h2>Live Sensor Monitoring</h2>
+            <p>Readings generated by the simulated ESP32 node. Trends show the last 15 samples regardless of network state.</p>
+          </div>
+        </div>
+        <div class="grid cols-4" id="liveSensors"></div>
+        <div class="card">
+          <div class="section-title">Recent readings</div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Time</th><th>Soil %</th><th>Temp °C</th><th>Humidity %</th><th>Rainfall mm</th><th>Status</th></tr></thead>
+              <tbody id="liveTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- OFFLINE STORAGE -->
+      <section class="page" id="page-offline">
+        <div class="page-head">
+          <div>
+            <h2>Offline Data Storage</h2>
+            <p>While the network is down, every reading is written to the local buffer on the edge device instead of being lost.</p>
+          </div>
+        </div>
+        <div class="grid cols-3">
+          <div class="card stat-card"><div class="label">Local storage count</div><div class="value" id="offLocalCount">0</div><div class="sub">records currently unsynced</div></div>
+          <div class="card stat-card"><div class="label">Oldest unsynced record</div><div class="value" id="offOldest">—</div><div class="sub">waiting the longest</div></div>
+          <div class="card stat-card"><div class="label">Storage started</div><div class="value" id="offSince">—</div><div class="sub">most recent outage began</div></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Stored sensor records</div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Time</th><th>Soil %</th><th>Temp °C</th><th>Humidity %</th><th>Rainfall mm</th><th>Priority</th></tr></thead>
+              <tbody id="offlineTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SPIKE ENCODING -->
+      <section class="page" id="page-spike">
+        <div class="page-head">
+          <div>
+            <h2>Adaptive Spike Encoding</h2>
+            <p>Each new reading is compared against the previous one. Large changes become a high-priority event, small changes a low-priority event, and steady values are dropped to almost nothing — the same idea neuromorphic sensors use to save bandwidth.</p>
+          </div>
+        </div>
+        <div class="grid cols-3">
+          <div class="card"><div class="tag spike-high" style="margin-bottom:8px;">HIGH SPIKE</div><div style="font-size:12.5px;color:var(--ink-soft)">A sensor value changed sharply since the last reading — e.g. soil moisture dropping fast during a dry spell.</div></div>
+          <div class="card"><div class="tag spike-low" style="margin-bottom:8px;">LOW SPIKE</div><div style="font-size:12.5px;color:var(--ink-soft)">A small, ordinary change — normal drift that's still worth a lightweight event.</div></div>
+          <div class="card"><div class="tag spike-none" style="margin-bottom:8px;">NO SPIKE</div><div style="font-size:12.5px;color:var(--ink-soft)">No meaningful change — nothing new to transmit.</div></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Encoded events</div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Time</th><th>Sensor</th><th>Original value</th><th>Encoded event</th><th>Priority</th></tr></thead>
+              <tbody id="spikeTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- NETWORK & SYNC -->
+      <section class="page" id="page-sync">
+        <div class="page-head">
+          <div>
+            <h2>Network &amp; Sync Monitor</h2>
+            <p>When connectivity returns, the scheduler checks quality before committing to a sync, then clears the queue by priority.</p>
+          </div>
+        </div>
+
+        <div class="grid cols-2">
+          <div class="card">
+            <div class="section-title">Network quality</div>
+            <div class="kv"><span class="k">Status</span><span class="v" id="syncNetState">ONLINE</span></div>
+            <div class="kv"><span class="k">Signal strength</span><span class="v" id="syncSignal">--%</span></div>
+            <div style="margin:10px 0;">
+              <div class="progress"><div id="signalBar" style="width:0%;background:var(--sky);"></div></div>
+            </div>
+            <div class="banner" id="syncBanner">Network is stable. New readings sync as they arrive.</div>
+          </div>
+          <div class="card">
+            <div class="section-title">Synchronization panel</div>
+            <div class="kv"><span class="k">Pending records</span><span class="v" id="syncPending">0</span></div>
+            <div class="kv"><span class="k">Synchronized</span><span class="v" id="syncDone">0</span></div>
+            <div class="kv"><span class="k">Remaining</span><span class="v" id="syncRemaining">0</span></div>
+            <div style="margin:10px 0 4px;"><div class="progress"><div id="syncProgressBar" style="width:0%"></div></div></div>
+            <div class="kv"><span class="k">Last successful sync</span><span class="v" id="syncLastTime">—</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Priority queues (pending)</div>
+          <div class="grid cols-3">
+            <div class="queue-col">
+              <h4><span class="tag critical">Critical</span></h4>
+              <div id="qCritical"></div>
+            </div>
+            <div class="queue-col">
+              <h4><span class="tag high">High</span></h4>
+              <div id="qHigh"></div>
+            </div>
+            <div class="queue-col">
+              <h4><span class="tag normal">Normal</span></h4>
+              <div id="qNormal"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ARCHITECTURE -->
+      <section class="page" id="page-arch">
+        <div class="page-head">
+          <div>
+            <h2>Architecture &amp; Workflow</h2>
+            <p>Everything below the line runs on the field device with no connectivity required. Everything above it depends on a network link.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="legend" style="margin-bottom:16px;">
+            <span><i style="background:var(--leaf-deep)"></i>Edge / offline layer</span>
+            <span><i style="background:var(--sky)"></i>Cloud / online layer</span>
+          </div>
+          <div class="flow" id="archFlow"></div>
+        </div>
+      </section>
+
+      <!-- STATISTICS -->
+      <section class="page" id="page-stats">
+        <div class="page-head">
+          <div>
+            <h2>System Statistics</h2>
+            <p>Aggregate counters for this session.</p>
+          </div>
+        </div>
+        <div class="grid cols-4" id="statCards"></div>
+        <div class="grid cols-2">
+          <div class="card">
+            <div class="section-title">Records by priority</div>
+            <svg id="priorityChart" viewBox="0 0 300 140" style="width:100%;height:150px;"></svg>
+          </div>
+          <div class="card">
+            <div class="section-title">Soil moisture trend (session)</div>
+            <svg id="soilChart" viewBox="0 0 300 140" style="width:100%;height:150px;"></svg>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- state ---------------- */
+  var state = {
+    network: 'online',
+    quality: 84,
+    syncState: 'idle', // idle | evaluating | waiting | ready | syncing | done
+    records: [],
+    nextId: 1,
+    last: { soil: 42, temp: 27, hum: 58, rain: 2 },
+    history: { soil: [], temp: [], hum: [], rain: [] },
+    lastSyncTime: null,
+    offlineSince: null,
+    totalSyncedEver: 0,
+    totalGenerated: 0,
+    qualityTimer: null,
+    syncTimer: null
+  };
+
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  function round1(v){ return Math.round(v*10)/10; }
+  function fmtTime(ts){
+    var d = new Date(ts);
+    return d.toLocaleTimeString('en-IN', {hour12:false});
+  }
+  function fmtShort(ts){
+    var d = new Date(ts);
+    return d.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',hour12:false});
+  }
+
+  /* ---------------- sensor generation ---------------- */
+  function generateReading(){
+    var forceEvent = Math.random() < 0.14;
+    // gentle mean-reversion keeps values hovering around a realistic midpoint
+    // instead of drifting to one extreme over time
+    var soil = state.last.soil + (Math.random()-0.5)*6 + (45 - state.last.soil)*0.04;
+    var temp = state.last.temp + (Math.random()-0.5)*2.2 + (27 - state.last.temp)*0.04;
+    var hum  = state.last.hum  + (Math.random()-0.5)*7  + (58 - state.last.hum)*0.04;
+    var rain = Math.max(0, state.last.rain + (Math.random()-0.5)*6 - state.last.rain*0.15);
+
+    if(forceEvent){
+      var pick = Math.floor(Math.random()*2);
+      if(pick===0){ soil -= 18 + Math.random()*10; } // drought event
+      else { rain += 22 + Math.random()*14; }        // heavy rainfall event
+    }
+
+    soil = clamp(round1(soil), 4, 78);
+    temp = clamp(round1(temp), 16, 41);
+    hum  = clamp(round1(hum), 22, 96);
+    rain = clamp(round1(rain), 0, 60);
+
+    var prev = state.last;
+    var reading = {
+      id: state.nextId++,
+      ts: Date.now(),
+      soil: soil, temp: temp, hum: hum, rain: rain,
+      prevSoil: prev.soil, prevTemp: prev.temp, prevHum: prev.hum, prevRain: prev.rain,
+      spikes: {
+        soil: encodeSpike(soil, prev.soil, 3, 9),
+        temp: encodeSpike(temp, prev.temp, 0.8, 2.2),
+        hum:  encodeSpike(hum, prev.hum, 4, 10),
+        rain: encodeSpike(rain, prev.rain, 5, 15)
+      }
+    };
+    reading.priority = computePriority(reading);
+    reading.status = (state.network === 'online') ? 'synced' : 'pending';
+    if(reading.status === 'synced'){ reading.syncedAt = reading.ts; state.totalSyncedEver++; }
+
+    state.last = { soil: soil, temp: temp, hum: hum, rain: rain };
+    state.history.soil.push(soil); state.history.temp.push(temp);
+    state.history.hum.push(hum); state.history.rain.push(rain);
+    ['soil','temp','hum','rain'].forEach(function(k){ if(state.history[k].length>24) state.history[k].shift(); });
+
+    state.records.unshift(reading);
+    if(state.records.length > 400) state.records.pop();
+    state.totalGenerated++;
+
+    renderAll();
+  }
+
+  function encodeSpike(val, prev, lowThresh, highThresh){
+    var delta = Math.abs(val - prev);
+    if(delta >= highThresh) return 'HIGH';
+    if(delta >= lowThresh) return 'LOW';
+    return 'NONE';
+  }
+
+  function computePriority(r){
+    if(r.soil <= 18) return 'Critical';
+    if(r.rain >= 28) return 'High';
+    return 'Normal';
+  }
+
+  /* ---------------- network + sync ---------------- */
+  function simulateFailure(){
+    if(state.network === 'offline') return;
+    state.network = 'offline';
+    state.quality = 0;
+    state.syncState = 'idle';
+    state.offlineSince = Date.now();
+    clearTimers();
+    renderAll();
+  }
+
+  function restoreNetwork(){
+    if(state.network === 'online' && state.syncState !== 'idle') return;
+    state.network = 'online';
+    state.offlineSince = null;
+    state.syncState = 'evaluating';
+    renderAll();
+
+    setTimeout(function(){
+      var roll = Math.random();
+      var q = roll < 0.6 ? (70 + Math.random()*30) : roll < 0.85 ? (40 + Math.random()*29) : (10 + Math.random()*25);
+      state.quality = Math.round(q);
+      if(state.quality < 40){
+        state.syncState = 'waiting';
+        renderAll();
+        state.qualityTimer = setInterval(function(){
+          state.quality = clamp(state.quality + 12 + Math.random()*8, 0, 100);
+          if(state.quality >= 45){
+            clearInterval(state.qualityTimer);
+            state.qualityTimer = null;
+            state.syncState = 'ready';
+          }
+          renderAll();
+        }, 1400);
+      } else {
+        state.syncState = 'ready';
+        renderAll();
+      }
+    }, 1000);
+  }
+
+  function startSync(){
+    if(state.network !== 'online' || state.syncState === 'waiting' || state.syncState === 'evaluating') return;
+    var pending = state.records.filter(function(r){ return r.status === 'pending'; });
+    if(pending.length === 0){
+      state.syncState = 'idle';
+      renderAll();
+      return;
+    }
+    var order = { 'Critical':0, 'High':1, 'Normal':2 };
+    pending.sort(function(a,b){
+      if(order[a.priority] !== order[b.priority]) return order[a.priority]-order[b.priority];
+      return a.ts - b.ts;
+    });
+
+    state.syncState = 'syncing';
+    var total = pending.length;
+    var done = 0;
+    renderAll();
+
+    state.syncTimer = setInterval(function(){
+      if(done >= total || state.network === 'offline'){
+        clearInterval(state.syncTimer);
+        state.syncTimer = null;
+        if(done >= total){
+          state.syncState = 'done';
+          state.lastSyncTime = Date.now();
+          setTimeout(function(){ if(state.syncState==='done'){ state.syncState='idle'; renderAll(); } }, 2200);
+        }
+        renderAll();
+        return;
+      }
+      var rec = pending[done];
+      var live = state.records.find(function(r){ return r.id === rec.id; });
+      if(live){ live.status = 'synced'; live.syncedAt = Date.now(); state.totalSyncedEver++; }
+      done++;
+      state._syncDone = done; state._syncTotal = total;
+      renderAll();
+    }, 480);
+  }
+
+  function clearTimers(){
+    if(state.qualityTimer){ clearInterval(state.qualityTimer); state.qualityTimer = null; }
+    if(state.syncTimer){ clearInterval(state.syncTimer); state.syncTimer = null; }
+  }
+
+  /* ---------------- small svg chart helpers ---------------- */
+  function sparkline(values, color){
+    if(values.length < 2) return '<svg viewBox="0 0 100 34"></svg>';
+    var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+    var range = (max-min) || 1;
+    var w = 100, h = 30, pad = 2;
+    var pts = values.map(function(v,i){
+      var x = pad + (i/(values.length-1)) * (w-2*pad);
+      var y = h - pad - ((v-min)/range) * (h-2*pad);
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    return '<svg viewBox="0 0 '+w+' '+(h+4)+'" preserveAspectRatio="none">'+
+      '<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+
+  function barChart(labels, values, colors){
+    var w=300,h=140, pad=28, gap=26;
+    var max = Math.max.apply(null, values.concat([1]));
+    var bw = (w - pad*2 - gap*(values.length-1)) / values.length;
+    var bars = values.map(function(v,i){
+      var bh = (h-40) * (v/max);
+      var x = pad + i*(bw+gap);
+      var y = h-30-bh;
+      return '<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+bh+'" rx="4" fill="'+colors[i]+'"/>'+
+        '<text x="'+(x+bw/2)+'" y="'+(y-6)+'" text-anchor="middle" font-size="12" font-family="IBM Plex Mono" fill="#4A3728">'+v+'</text>'+
+        '<text x="'+(x+bw/2)+'" y="'+(h-12)+'" text-anchor="middle" font-size="11" font-family="IBM Plex Sans" fill="#5B6152">'+labels[i]+'</text>';
+    }).join('');
+    return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="100%">'+bars+'</svg>';
+  }
+
+  function lineChartLarge(values, color){
+    var w=300,h=140,pad=14;
+    if(values.length<2) return '<svg viewBox="0 0 '+w+' '+h+'"></svg>';
+    var min=Math.min.apply(null,values), max=Math.max.apply(null,values);
+    var range=(max-min)||1;
+    var pts = values.map(function(v,i){
+      var x = pad + (i/(values.length-1))*(w-2*pad);
+      var y = h-pad - ((v-min)/range)*(h-2*pad);
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    return '<svg viewBox="0 0 '+w+' '+h+'"><polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+
+  /* ---------------- render ---------------- */
+  var SENSORS = [
+    { key:'soil', label:'Soil Moisture', unit:'%', color:'var(--c-soil)', hex:'#2F4F3A' },
+    { key:'temp', label:'Temperature', unit:'°C', color:'var(--c-temp)', hex:'#C97A3D' },
+    { key:'hum',  label:'Humidity', unit:'%', color:'var(--c-hum)', hex:'#4F7C96' },
+    { key:'rain', label:'Rainfall', unit:'mm', color:'var(--c-rain)', hex:'#6C5B9A' }
+  ];
+
+  function renderAll(){
+    renderTopbar();
+    renderOverview();
+    renderLive();
+    renderOffline();
+    renderSpike();
+    renderSyncPage();
+    renderArch();
+    renderStats();
+  }
+
+  function renderTopbar(){
+    var pill = document.getElementById('statusPill');
+    var text = document.getElementById('statusText');
+    if(state.network === 'online'){
+      pill.className = 'status-pill online'; text.textContent = 'Online';
+    } else {
+      pill.className = 'status-pill offline'; text.textContent = 'Offline';
+    }
+    var hasPending = state.records.some(function(r){ return r.status==='pending'; });
+    var canSync = state.network==='online' && hasPending &&
+      (state.syncState==='ready' || state.syncState==='idle') ;
+    document.getElementById('btnSync').disabled = !canSync;
+    document.getElementById('btnFail').disabled = (state.network==='offline');
+    document.getElementById('btnRestore').disabled = (state.network==='online');
+  }
+
+  function pendingCounts(){
+    var c = {Critical:0, High:0, Normal:0, total:0};
+    state.records.forEach(function(r){
+      if(r.status==='pending'){ c[r.priority]++; c.total++; }
+    });
+    return c;
+  }
+
+  function sensorCardHtml(key, containerValue){
+    var s = SENSORS.filter(function(x){return x.key===key;})[0];
+    var val = state.last[key];
+    return '<div class="card sensor-card" data-sensor="'+key+'">'+
+      '<div class="label"><span>'+s.label+'</span></div>'+
+      '<div class="value">'+val+'<span>'+s.unit+'</span></div>'+
+      sparkline(state.history[key], s.hex)+
+      '</div>';
+  }
+
+  function renderOverview(){
+    var wrap = document.getElementById('overviewSensors');
+    wrap.innerHTML = SENSORS.map(function(s){ return sensorCardHtml(s.key); }).join('');
+
+    var pend = pendingCounts();
+    document.getElementById('ovNetState').textContent = state.network.toUpperCase();
+    document.getElementById('ovSignal').textContent = state.network==='online' ? state.quality+'%' : '0%';
+    document.getElementById('ovQuality').textContent = qualityLabel();
+    document.getElementById('ovPending').textContent = pend.total;
+
+    document.getElementById('ovLocalCount').textContent = pend.total;
+    document.getElementById('ovCritCount').textContent = pend.Critical;
+    document.getElementById('ovHighCount').textContent = pend.High;
+    document.getElementById('ovNormCount').textContent = pend.Normal;
+
+    document.getElementById('ovSyncState').textContent = syncStateLabel();
+    document.getElementById('ovLastSync').textContent = state.lastSyncTime ? fmtTime(state.lastSyncTime) : '—';
+    var pct = 0;
+    if(state.syncState==='syncing' && state._syncTotal){ pct = Math.round((state._syncDone/state._syncTotal)*100); }
+    if(state.syncState==='done'){ pct = 100; }
+    document.getElementById('ovProgressBar').style.width = pct+'%';
+
+    var bannerCard = document.getElementById('ovBannerCard');
+    var msg = bannerMessage();
+    if(msg){ bannerCard.style.display='block'; bannerCard.innerHTML = '<div class="banner '+msg.cls+'">'+msg.text+'</div>'; }
+    else { bannerCard.style.display='none'; }
+  }
+
+  function qualityLabel(){
+    if(state.network==='offline') return 'No signal';
+    if(state.quality>=70) return 'Good';
+    if(state.quality>=40) return 'Fair';
+    return 'Poor';
+  }
+
+  function syncStateLabel(){
+    switch(state.syncState){
+      case 'evaluating': return 'Evaluating network…';
+      case 'waiting': return 'Waiting for better signal';
+      case 'ready': return 'Ready to sync';
+      case 'syncing': return 'Synchronizing…';
+      case 'done': return 'Sync complete';
+      default: return state.network==='offline' ? 'Paused (offline)' : 'Idle';
+    }
+  }
+
+  function bannerMessage(){
+    if(state.network==='offline'){
+      return { cls:'warn', text:'Network unavailable — sensors keep sampling and every reading is being written to local storage.' };
+    }
+    if(state.syncState==='evaluating') return { cls:'warn', text:'Connectivity restored. Checking network quality before scheduling a sync…' };
+    if(state.syncState==='waiting') return { cls:'warn', text:'Signal is too weak to sync reliably ('+state.quality+'%). Waiting for it to improve…' };
+    if(state.syncState==='ready') return { cls:'ok', text:'Network quality is sufficient ('+state.quality+'%). Click "Start Sync" to clear the queue, critical records first.' };
+    if(state.syncState==='syncing') return { cls:'ok', text:'Synchronizing pending records by priority — Critical, then High, then Normal.' };
+    if(state.syncState==='done') return { cls:'ok', text:'All pending records have been synchronized.' };
+    return null;
+  }
+
+  function renderLive(){
+    var wrap = document.getElementById('liveSensors');
+    wrap.innerHTML = SENSORS.map(function(s){ return sensorCardHtml(s.key); }).join('');
+    var body = document.getElementById('liveTableBody');
+    var rows = state.records.slice(0,12);
+    if(rows.length===0){ body.innerHTML = '<tr class="empty-row"><td colspan="6">No readings yet — click "Generate Sensor Data".</td></tr>'; return; }
+    body.innerHTML = rows.map(function(r){
+      return '<tr><td>'+fmtTime(r.ts)+'</td><td class="num">'+r.soil+'</td><td class="num">'+r.temp+'</td><td class="num">'+r.hum+'</td><td class="num">'+r.rain+'</td>'+
+        '<td><span class="tag status-'+r.status+'">'+r.status+'</span></td></tr>';
+    }).join('');
+  }
+
+  function renderOffline(){
+    var pending = state.records.filter(function(r){ return r.status==='pending'; });
+    document.getElementById('offLocalCount').textContent = pending.length;
+    var oldest = pending.length ? pending[pending.length-1] : null;
+    document.getElementById('offOldest').textContent = oldest ? fmtShort(oldest.ts) : '—';
+    document.getElementById('offSince').textContent = state.offlineSince ? fmtShort(state.offlineSince) : (state.network==='offline' ? fmtShort(Date.now()) : '—');
+
+    var body = document.getElementById('offlineTableBody');
+    if(pending.length===0){ body.innerHTML = '<tr class="empty-row"><td colspan="6">Local buffer is empty — nothing waiting to sync.</td></tr>'; return; }
+    body.innerHTML = pending.slice(0,20).map(function(r){
+      return '<tr><td>'+fmtTime(r.ts)+'</td><td class="num">'+r.soil+'</td><td class="num">'+r.temp+'</td><td class="num">'+r.hum+'</td><td class="num">'+r.rain+'</td>'+
+        '<td><span class="tag '+r.priority.toLowerCase()+'">'+r.priority+'</span></td></tr>';
+    }).join('');
+  }
+
+  function spikeRowsForRecord(r){
+    var rows = [];
+    SENSORS.forEach(function(s){
+      var lvl = r.spikes[s.key];
+      if(lvl==='NONE') return;
+      rows.push({ ts:r.ts, sensor:s.label, val:r[s.key]+s.unit, lvl:lvl, priority:r.priority });
+    });
+    return rows;
+  }
+
+  function renderSpike(){
+    var body = document.getElementById('spikeTableBody');
+    var out = [];
+    for(var i=0;i<state.records.length && out.length<16;i++){
+      out = out.concat(spikeRowsForRecord(state.records[i]));
+    }
+    if(out.length===0){ body.innerHTML = '<tr class="empty-row"><td colspan="5">No spike events yet — generate a few readings to see encoding in action.</td></tr>'; return; }
+    body.innerHTML = out.slice(0,16).map(function(e){
+      var cls = e.lvl==='HIGH' ? 'spike-high' : 'spike-low';
+      return '<tr><td>'+fmtTime(e.ts)+'</td><td>'+e.sensor+'</td><td class="num">'+e.val+'</td>'+
+        '<td><span class="tag '+cls+'">'+e.lvl+' SPIKE</span></td>'+
+        '<td><span class="tag '+e.priority.toLowerCase()+'">'+e.priority+'</span></td></tr>';
+    }).join('');
+  }
+
+  function renderSyncPage(){
+    document.getElementById('syncNetState').textContent = state.network.toUpperCase();
+    document.getElementById('syncSignal').textContent = state.network==='online' ? state.quality+'%' : '0%';
+    var bar = document.getElementById('signalBar');
+    bar.style.width = (state.network==='online' ? state.quality : 0)+'%';
+    bar.style.background = state.network==='offline' ? 'var(--clay)' : (state.quality<40 ? '#C97A3D' : 'var(--sky)');
+
+    var msg = bannerMessage();
+    var b = document.getElementById('syncBanner');
+    if(msg){ b.className = 'banner '+msg.cls; b.textContent = msg.text; }
+    else { b.className='banner'; b.textContent='Network is stable. New readings sync as they arrive.'; }
+
+    var pend = pendingCounts();
+    document.getElementById('syncPending').textContent = pend.total;
+    document.getElementById('syncDone').textContent = state.totalSyncedEver;
+    document.getElementById('syncRemaining').textContent = pend.total;
+    var pct = 0;
+    if(state.syncState==='syncing' && state._syncTotal){ pct = Math.round((state._syncDone/state._syncTotal)*100); }
+    if(state.syncState==='done') pct = 100;
+    document.getElementById('syncProgressBar').style.width = pct+'%';
+    document.getElementById('syncLastTime').textContent = state.lastSyncTime ? fmtTime(state.lastSyncTime) : '—';
+
+    ['Critical','High','Normal'].forEach(function(p){
+      var el = document.getElementById('q'+p);
+      var items = state.records.filter(function(r){ return r.status==='pending' && r.priority===p; });
+      if(items.length===0){ el.innerHTML = '<div class="queue-empty">Empty</div>'; return; }
+      el.innerHTML = items.slice(0,5).map(function(r){
+        return '<div class="queue-item"><span>'+fmtShort(r.ts)+'</span><span class="num">'+r.soil+'% soil</span></div>';
+      }).join('') + (items.length>5 ? '<div class="queue-empty">+'+(items.length-5)+' more</div>' : '');
+    });
+  }
+
+  function renderArch(){
+    var online = state.network==='online';
+    var syncing = state.syncState==='syncing' || state.syncState==='ready' || state.syncState==='done';
+    var nodes = [
+      {n:'01', t:'Sensors', d:'Soil, temperature, humidity, rainfall probes', layer:'edge'},
+      {n:'02', t:'ESP32 Edge Device', d:'Reads sensors, runs on-board logic', layer:'edge'},
+      {n:'03', t:'Adaptive Spike Encoding', d:'Converts raw values into events', layer:'edge'},
+      {n:'04', t:'Local Storage', d:'Buffers records while offline', layer:'edge'},
+      {n:'05', t:'Network Quality Check', d:'Measures signal before syncing', layer:'edge'},
+      {n:'06', t:'Intelligent Sync Scheduler', d:'Waits for usable connectivity', layer:'cloud'},
+      {n:'07', t:'Priority-Based Synchronization', d:'Critical records go first', layer:'cloud'},
+      {n:'08', t:'Central Server / Dashboard', d:'Aggregates and displays field data', layer:'cloud'}
+    ];
+    var html = '<div class="layer-label">EDGE — runs without a network</div>';
+    nodes.forEach(function(node, i){
+      if(i>0 && nodes[i-1].layer==='edge' && node.layer==='cloud'){
+        html += '<div class="flow-arrow">↓</div><div class="layer-label" style="margin-top:0">CLOUD — needs connectivity</div>';
+      } else if(i>0){
+        html += '<div class="flow-arrow">↓</div>';
+      }
+      var dim = (node.layer==='cloud' && !online) ? ' dim' : '';
+      html += '<div class="flow-node '+node.layer+dim+'"><span class="n">'+node.n+'</span><div><div class="t">'+node.t+'</div><div class="d">'+node.d+'</div></div></div>';
+    });
+    document.getElementById('archFlow').innerHTML = html;
+  }
+
+  function renderStats(){
+    var pend = pendingCounts();
+    var everCrit = state.records.filter(function(r){return r.priority==='Critical';}).length;
+    var everHigh = state.records.filter(function(r){return r.priority==='High';}).length;
+    var everNorm = state.records.filter(function(r){return r.priority==='Normal';}).length;
+
+    var syncedWithTime = state.records.filter(function(r){ return r.status==='synced' && r.syncedAt && r.syncedAt!==r.ts; });
+    var avgMs = 0;
+    if(syncedWithTime.length){
+      avgMs = syncedWithTime.reduce(function(a,r){return a+(r.syncedAt-r.ts);},0)/syncedWithTime.length;
+    }
+
+    var cards = [
+      {label:'Total readings this session', value: state.totalGenerated, sub:'generated by the simulated node'},
+      {label:'Total synchronized', value: state.totalSyncedEver, sub:'delivered to the dashboard'},
+      {label:'Currently pending', value: pend.total, sub:'sitting in local storage'},
+      {label:'Avg. time to sync', value: syncedWithTime.length ? (Math.round(avgMs/100)/10)+'s' : '—', sub:'for records that were queued'}
+    ];
+    document.getElementById('statCards').innerHTML = cards.map(function(c){
+      return '<div class="card stat-card"><div class="label">'+c.label+'</div><div class="value">'+c.value+'</div><div class="sub">'+c.sub+'</div></div>';
+    }).join('');
+
+    document.getElementById('priorityChart').outerHTML = '<svg id="priorityChart" viewBox="0 0 300 140">'+
+      barChart(['Critical','High','Normal'], [everCrit,everHigh,everNorm], ['#B1502E','#C99A3D','#7A9B57']).replace(/^<svg[^>]*>|<\/svg>$/g,'')+
+      '</svg>';
+    document.getElementById('soilChart').outerHTML = '<svg id="soilChart" viewBox="0 0 300 140">'+
+      lineChartLarge(state.history.soil, '#2F4F3A').replace(/^<svg[^>]*>|<\/svg>$/g,'')+
+      '</svg>';
+  }
+
+  /* ---------------- nav + controls ---------------- */
+  document.getElementById('nav').addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn) return;
+    document.querySelectorAll('.nav button').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    var page = btn.getAttribute('data-page');
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    document.getElementById('page-'+page).classList.add('active');
+  });
+
+  document.getElementById('btnGenerate').addEventListener('click', generateReading);
+  document.getElementById('btnFail').addEventListener('click', simulateFailure);
+  document.getElementById('btnRestore').addEventListener('click', restoreNetwork);
+  document.getElementById('btnSync').addEventListener('click', startSync);
+
+  function tickClock(){
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-IN', {hour12:false});
+  }
+  setInterval(tickClock, 1000);
+  tickClock();
+
+  // seed a little history so charts aren't empty on load
+  for(var i=0;i<6;i++){ generateReading(); }
+
+  // ambient auto-generation so the dashboard feels alive
+  setInterval(generateReading, 7000);
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
